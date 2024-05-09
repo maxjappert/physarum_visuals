@@ -1,0 +1,35 @@
+# General
+*.o
+*.a
+*.log
+*.lock
+*.out
+*.exe
+*.app
+*.i*proj
+*.swp
+*.swo
+*.DS_Store
+
+# OpenFrameworks specific
+/bin
+/libs
+
+# Exclude all PNG files
+*.png
+
+# IDE specific
+*.xcodeproj
+*.xcworkspace
+*.settings
+*.cproject
+*.directory
+.idea/
+.vscode/
+*.sublime-workspace
+
+# Build products
+obj/
+build/
+DerivedData/
+
