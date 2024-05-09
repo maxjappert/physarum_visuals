@@ -1,5 +1,9 @@
 #include "ofApp.h"
 #include "Agent.hpp"
+#include <glm/glm.hpp>
+#include <glm/trigonometric.hpp>
+#include <glm/vector_relational.hpp>
+#include <glm/gtc/random.hpp>  // For glm::linearRand
 
 const int numAgents = 1000000;
 Agent** agents = new Agent*[numAgents];
@@ -79,107 +83,71 @@ void applyGaussianBlur(float** array, int width, int height, int kernelSize, flo
 }
 
 // Function to create a normalized 2D vector using float
-std::vector<float> createRandomNormalized2DVector() {
-    // Random device class instance, source of 'true' randomness for initializing random seed
-    std::random_device rd;
-    // Mersenne twister PRNG, initialized with seed from previous random device instance
-    std::mt19937 gen(rd());
-    // Normal distribution with mean 0 and standard deviation 1, specialized for float
-    std::normal_distribution<float> dist(0.0f, 1.0f);
-
-    // Generate two independent normally distributed random numbers (floats)
-    float x = dist(gen);
-    float y = dist(gen);
-
-    // Calculate the magnitude of the vector (float precision)
-    float magnitude = std::sqrtf(x*x + y*y);
-
-    // Normalize the vector components to unit length
-    x /= magnitude;
-    y /= magnitude;
-
-    // Create a vector to hold the normalized components (floats)
-    std::vector<float> normalizedVector = {x, y};
-
-    return normalizedVector;
+glm::vec2 createRandomNormalized2DVector() {
+    float angle = glm::linearRand(0.0f, 2 * glm::pi<float>());
+    return glm::vec2(glm::cos(angle), glm::sin(angle));
 }
 
 //--------------------------------------------------------------
 void ofApp::setup(){
     //ofSetVerticalSync(true);
     ofBackground(20);
-    
-    std::random_device rd;  // Obtain a random number from hardware
-    std::mt19937 gen(rd()); // Seed the generator
-    std::uniform_real_distribution<> disDouble(0, ofGetWidth());
-    
-    for (int i = 0; i < numAgents; i++) {
-        std::vector<float> randomVec = createRandomNormalized2DVector();
-        agents[i] = new Agent({(float)disDouble(gen), (float)disDouble(gen)}, createRandomNormalized2DVector());
-        //agents[i] = new Agent({100, 100}, createRandomNormalized2DVector());
-    }
-    
+
     width = (int)ofGetWidth();
     height = (int)ofGetHeight();
+    
+    for (int i = 0; i < numAgents; i++) {
+        glm::vec2 newLoc(glm::linearRand(0, width-1), glm::linearRand(0, height-1));
+        glm::vec2 newDir = createRandomNormalized2DVector();
+        //agents[i] = new Agent(newLoc, newDir);
+        agents[i] = new Agent(newLoc.x, newLoc.y, newDir.x, newDir.y);
+    }
+    
     trailMap = new float*[width];
     
-    for (int i = 0; i < width; ++i) {
+    
+    for (int i = 0; i < width; i++) {
         trailMap[i] = new float[height];
         for (int j = 0; j < height; j++) {
             trailMap[i][j] = 0;
         }
     }
     
-    pixels.allocate(width, height, OF_PIXELS_RGB);
+    //pixels.allocate(width, height, OF_PIXELS_RGB);
+    //trailMapTexture.allocate(width, height, GL_R32F);  // Allocate a texture with floating-point precision
 }
 
 bool isLegalCoords(int x, int y) {
-    return x >= 0 && x < (int)ofGetWidth() && y >= 0 && y < (int)ofGetHeight();
+    return x >= 0 && x < width && y >= 0 && y < height;
 }
 
-// Function to generate a random float between a and b
-float getRandomFloat(float a, float b) {
-    // Static variables for the random engine and distribution
-    static std::random_device rd;  // Obtain a seed from the system entropy device, or whatever is available
-    static std::mt19937 gen(rd()); // Seed the generator
-    static std::uniform_real_distribution<> dis(a, b); // Define the range [a, b]
+glm::vec2 getRotatedVec(glm::vec2 input, float theta) {
 
-    return dis(gen); // Generate and return the random float
-}
-
-std::vector<float> getRotatedVec(std::vector<float> input, float theta) {
-
-    float cosTheta = cos(theta);
-    float sinTheta = sin(theta);
-    std::vector<float> rotatedVec(2);
-    rotatedVec[0] = input[0] * cosTheta - input[1] * sinTheta; // x' = x*cos(theta) - y*sin(theta)
-    rotatedVec[1] = input[0] * sinTheta + input[1] * cosTheta; // y' = x*sin(theta) + y*cos(theta)
-
+    float cosTheta = glm::cos(theta);
+    float sinTheta = glm::sin(theta);
+    
+    glm::vec2 rotatedVec;
+    
+    rotatedVec.x = input.x * cosTheta - input.y * sinTheta;
+    rotatedVec.y = input.x * sinTheta + input.y * cosTheta;
+    
     return rotatedVec;
 }
 
-std::vector<float> mult2dVector(std::vector<float> vec, float factor) {
-    return {vec[0]*factor, vec[1]*factor};
-}
-
-int cutX(int x) {
-    if (x < 0) {
-        x = 0;
-    } else if (x >= ofGetWidth()) {
-        x = ofGetWidth()-1;
+glm::vec2 cutVec(glm::vec2 vec) {
+    if (vec.x < 0) {
+        vec.x = 0;
+    } else if (vec.x >= width-1) {
+        vec.x = width-1;
     }
     
-    return x;
-}
-
-int cutY(int y) {
-    if (y < 0) {
-        y = 0;
-    } else if (y >= ofGetHeight()) {
-        y = ofGetHeight()-1;
+    if (vec.y < 0) {
+        vec.y = 0;
+    } else if (vec.y > height-1) {
+        vec.y = height-1;
     }
     
-    return y;
+    return vec;
 }
 
 float ofApp::map(float value, float inputMin, float inputMax, float outputMin, float outputMax, bool clamp) {
@@ -217,7 +185,7 @@ void ofApp::draw(){
     glBegin(GL_POINTS);
     for(int i = 0; i < numAgents; i++) {
         glColor4f(1, 1, 1, 1);
-        glVertex2f(agents[i]->loc[0], agents[i]->loc[1]);
+        glVertex2f(agents[i]->loc.x, agents[i]->loc.y);
     }
     glEnd();
         
@@ -226,11 +194,9 @@ void ofApp::draw(){
     //    ofDrawCircle(agents[i]->loc[0], agents[i]->loc[1], 0.1);
     //}
     
-    #pragma omp parallel for
     for (int i = 0; i < width; i++) {
-        #pragma omp parallel for
         for (int j = 0; j < height; j++) {
-            int mappedValue = round(map(trailMap[i][j], 0, maxDeposit, 0, 255, true));
+            //int mappedValue = round(map(trailMap[i][j], 0, maxDeposit, 0, 255, true));
             //ofColor color(mappedValue, mappedValue, mappedValue); // Red color
             //pixels.setColor(i, j, color);
             //ofSetColor(mappedValue, mappedValue, mappedValue);
@@ -239,28 +205,28 @@ void ofApp::draw(){
             //std::cout << mappedValue << std::endl;
             //std::cout << trailMap[i][j] << std::endl;
             
-            if (trailMap[i][j] >= 0) {
+            if (trailMap[i][j] - decayT >= 0) {
                 trailMap[i][j] -= decayT;
                 //ofSetColor(trailMap[i][j], trailMap[i][j], trailMap[i][j]);
                 //ofDrawCircle(j, i, 1);
                 //ofSetColor(255, 255, 255);
+            } else {
+                trailMap[i][j] = 0;
             }
         }
     }
         
     applyGaussianBlur(trailMap, width, height, kernelSize, sigma);
     
-    image.setFromPixels(pixels);
+    //image.setFromPixels(pixels);
     //image.draw(0, 0);
     
-    #pragma omp parallel for
     for (int i = 0; i < numAgents; i++) {
         // Motor stage
-        //agents[i]->rotate(0.01);
-        agents[i]->loc[0] += stepSize*agents[i]->dir[0];
-        agents[i]->loc[1] += stepSize*agents[i]->dir[1];
-        int newLocX = round(agents[i]->loc[0]);
-        int newLocY = round(agents[i]->loc[1]);
+        agents[i]->loc += stepSize*agents[i]->dir;
+        
+        int newLocX = (int)round(agents[i]->loc.x);
+        int newLocY = (int)round(agents[i]->loc.y);
         if (isLegalCoords(newLocX, newLocY)) {
             if (trailMap[newLocX][newLocY] + deposit < maxDeposit) {
                 trailMap[newLocX][newLocY] += deposit;
@@ -268,32 +234,33 @@ void ofApp::draw(){
                 trailMap[newLocX][newLocY] = maxDeposit;
             }
         } else {
-            agents[i]->rotate(getRandomFloat(0, 2*3.141));
+            agents[i]->rotate(glm::linearRand(0.0f, 2*glm::pi<float>()));
         }
         
         // Sensory stage
-        std::vector<float> sensorVecF = mult2dVector(agents[i]->dir, sensorOffset);
-        int F_x = cutX(round(agents[i]->loc[0] + sensorVecF[0]));
-        int F_y = cutY(round(agents[i]->loc[1] + sensorVecF[1]));
+        Agent agent = *agents[i];
+        glm::vec2 sensorVecF = agents[i]->dir * sensorOffset;
+        glm::vec2 F_vec = cutVec(agents[i]->loc + sensorVecF);
         
-        float F = trailMap[F_x][F_y];
+        float F = trailMap[(int)round(F_vec.x)][(int)round(F_vec.y)];
         
-        std::vector<float> sensorVecFL = getRotatedVec(sensorVecF, -sensoryAngle);
-        int FL_x = cutX(round(agents[i]->loc[0] + sensorVecFL[0]));
-        int FL_y = cutY(round(agents[i]->loc[1] + sensorVecFL[1]));
+        glm::vec2 sensorVecFL = getRotatedVec(sensorVecF, -sensoryAngle);
+        glm::vec2 FL_vec = cutVec(agents[i]->loc + sensorVecFL);
         
-        float FL = trailMap[FL_x][FL_y];
+        //std::cout << (int)round(FL_vec.x) << std::endl;
+        //std::cout << (int)round(FL_vec.y) << std::endl;
         
-        std::vector<float> sensorVecFR = getRotatedVec(sensorVecF, sensoryAngle);
-        int FR_x = cutX(round(agents[i]->loc[0] + sensorVecFR[0]));
-        int FR_y = cutY(round(agents[i]->loc[1] + sensorVecFR[1]));
+        float FL = trailMap[(int)round(FL_vec.x)][(int)round(FL_vec.y)];
         
-        float FR = trailMap[FR_x][FR_y];
+        glm::vec2 sensorVecFR = getRotatedVec(sensorVecF, sensoryAngle);
+        glm::vec2 FR_vec = cutVec(agents[i]->loc + sensorVecFR);
+        
+        float FR = trailMap[(int)round(FR_vec.x)][(int)round(FR_vec.y)];
         
         if (F > FL && F > FR) {
             continue;
         } else if (F < FL && F < FR) {
-            if (getRandomFloat(0, 1) < 0.5) {
+            if (glm::linearRand(0.0f, 1.0f) < 0.5) {
                 agents[i]->rotate(-rotationAngle);
             } else {
                 agents[i]->rotate(rotationAngle);

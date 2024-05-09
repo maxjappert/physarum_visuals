@@ -10,19 +10,21 @@
 
 #include <stdio.h>
 #include <vector>
+#include <glm/glm.hpp>  // Include the main GLM header
 
 class Agent {
 public:
     // Constructor
-    Agent();
-    Agent(std::vector<float> loc_, std::vector<float> dir_);
+    //Agent();
+    Agent(glm::vec2 loc_, glm::vec2 dir_);
+    Agent(float locx, float locy, float dirx, float diry);
 
     // Destructor
     ~Agent();
 
     // Example method
-    std::vector<float> loc;
-    std::vector<float> dir;
+    glm::vec2 loc;
+    glm::vec2 dir;
     
     void rotate(float theta);
     
