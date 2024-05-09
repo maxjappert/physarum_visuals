@@ -10,6 +10,8 @@ class ofApp : public ofBaseApp{
 		void draw() override;
 		void exit() override;
 
+        float map(float value, float inputMin, float inputMax, float outputMin, float outputMax, bool clamp);
+
 		void keyPressed(int key) override;
 		void keyReleased(int key) override;
 		void mouseMoved(int x, int y ) override;

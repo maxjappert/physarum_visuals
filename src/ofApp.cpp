@@ -8,11 +8,17 @@ float stepSize = 1;
 int width;
 int height;
 
-float decayT = 0.1;
+float decayT = 2;
 float sensoryAngle = 3.141/8;
 float rotationAngle = 3.141/4;
 float sensorOffset = 9;
 float deposit = 5;
+float maxDeposit = 1000;
+
+int kernelSize = 3;
+float sigma = 0.5;
+
+ofImage image;
 
 ofPixels pixels;
 
@@ -176,6 +182,26 @@ int cutY(int y) {
     return y;
 }
 
+float ofApp::map(float value, float inputMin, float inputMax, float outputMin, float outputMax, bool clamp) {
+    if (fabs(inputMax - inputMin) < FLT_EPSILON){
+        return outputMin; // avoid zero division
+    } else {
+        float outVal = ((value - inputMin) / (inputMax - inputMin) * (outputMax - outputMin) + outputMin);
+
+        if(clamp){
+            if(outputMax < outputMin){
+                if(outVal < outputMax) outVal = outputMax;
+                else if(outVal > outputMin) outVal = outputMin;
+            }else{
+                if(outVal > outputMax) outVal = outputMax;
+                else if(outVal < outputMin) outVal = outputMin;
+            }
+        }
+        return outVal;
+    }
+}
+
+
 //--------------------------------------------------------------
 void ofApp::update(){
     
@@ -183,6 +209,17 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
+    
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    glPointSize(0.1f);
+    glBegin(GL_POINTS);
+    for(int i = 0; i < numAgents; i++) {
+        glColor4f(1, 1, 1, 1);
+        glVertex2f(agents[i]->loc[0], agents[i]->loc[1]);
+    }
+    glEnd();
         
     //for (int i = 0; i < numAgents; i++) {
     //    ofSetColor(255, 255, 255);
@@ -193,6 +230,15 @@ void ofApp::draw(){
     for (int i = 0; i < width; i++) {
         #pragma omp parallel for
         for (int j = 0; j < height; j++) {
+            int mappedValue = round(map(trailMap[i][j], 0, maxDeposit, 0, 255, true));
+            //ofColor color(mappedValue, mappedValue, mappedValue); // Red color
+            //pixels.setColor(i, j, color);
+            //ofSetColor(mappedValue, mappedValue, mappedValue);
+            //ofDrawRectangle(i, j, 1, 1);
+            
+            //std::cout << mappedValue << std::endl;
+            //std::cout << trailMap[i][j] << std::endl;
+            
             if (trailMap[i][j] >= 0) {
                 trailMap[i][j] -= decayT;
                 //ofSetColor(trailMap[i][j], trailMap[i][j], trailMap[i][j]);
@@ -201,8 +247,11 @@ void ofApp::draw(){
             }
         }
     }
+        
+    applyGaussianBlur(trailMap, width, height, kernelSize, sigma);
     
-    applyGaussianBlur(trailMap, width, height, 3, 1);
+    image.setFromPixels(pixels);
+    //image.draw(0, 0);
     
     #pragma omp parallel for
     for (int i = 0; i < numAgents; i++) {
@@ -213,7 +262,11 @@ void ofApp::draw(){
         int newLocX = round(agents[i]->loc[0]);
         int newLocY = round(agents[i]->loc[1]);
         if (isLegalCoords(newLocX, newLocY)) {
-            trailMap[newLocX][newLocY] += deposit;
+            if (trailMap[newLocX][newLocY] + deposit < maxDeposit) {
+                trailMap[newLocX][newLocY] += deposit;
+            } else {
+                trailMap[newLocX][newLocY] = maxDeposit;
+            }
         } else {
             agents[i]->rotate(getRandomFloat(0, 2*3.141));
         }
@@ -257,7 +310,7 @@ void ofApp::draw(){
         //ofSetColor(255, 255, 255);
     }
     
-    ofSaveFrame();
+    //ofSaveFrame();
 }
 
 //--------------------------------------------------------------
