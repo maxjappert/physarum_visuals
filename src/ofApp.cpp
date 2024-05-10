@@ -107,7 +107,6 @@ void ofApp::setup(){
     glVertexPointer(2, GL_FLOAT, 0, 0);
     glEnableClientState(GL_VERTEX_ARRAY);
 
-
     width = (int)ofGetWidth();
     height = (int)ofGetHeight();
     
@@ -187,27 +186,6 @@ float ofApp::map(float value, float inputMin, float inputMax, float outputMin, f
 
 //--------------------------------------------------------------
 void ofApp::update(){
-    
-}
-
-//--------------------------------------------------------------
-void ofApp::draw(){
-    
-    // Update VBO data if necessary
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    float* vboData = (float*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-    for(int i = 0; i < numAgents; i++) {
-        vboData[2*i] = agents[i]->loc.x;
-        vboData[2*i+1] = agents[i]->loc.y;
-    }
-    glUnmapBuffer(GL_ARRAY_BUFFER);
-
-    // Draw the points
-    glDrawArrays(GL_POINTS, 0, numAgents);
-
-    // Cleanup if needed, though not necessary every frame
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
             if (trailMap[i][j] - decayT >= 0) {
@@ -272,12 +250,27 @@ void ofApp::draw(){
         } else if (FL > FR) {
             agents[i]->rotate(-rotationAngle);
         }
-        
-        //ofSetColor(255, 0, 0);
-        //ofDrawCircle(FR_x, FR_y, 1);
-        //ofDrawCircle(FL_x, FL_y, 1);
-        //ofSetColor(255, 255, 255);
     }
+}
+
+//--------------------------------------------------------------
+void ofApp::draw(){
+    
+    // Update VBO data if necessary
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    float* vboData = (float*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+    for(int i = 0; i < numAgents; i++) {
+        vboData[2*i] = agents[i]->loc.x;
+        vboData[2*i+1] = agents[i]->loc.y;
+    }
+    glUnmapBuffer(GL_ARRAY_BUFFER);
+
+    // Draw the points
+    glDrawArrays(GL_POINTS, 0, numAgents);
+
+    // Cleanup if needed, though not necessary every frame
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
     
     //ofSaveFrame();
 }
