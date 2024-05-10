@@ -19,6 +19,8 @@ float sensorOffset = 9;
 float deposit = 5;
 float maxDeposit = 1000;
 
+GLuint vbo;
+
 int kernelSize = 3;
 float sigma = 0.5;
 
@@ -92,6 +94,19 @@ glm::vec2 createRandomNormalized2DVector() {
 void ofApp::setup(){
     //ofSetVerticalSync(true);
     ofBackground(20);
+    glColor4f(1, 1, 1, 1);
+    
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    glPointSize(0.1f);
+    
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, numAgents * sizeof(float) * 2, NULL, GL_STATIC_DRAW); // Use GL_DYNAMIC_DRAW if data changes often
+    glVertexPointer(2, GL_FLOAT, 0, 0);
+    glEnableClientState(GL_VERTEX_ARRAY);
+
 
     width = (int)ofGetWidth();
     height = (int)ofGetHeight();
@@ -178,38 +193,25 @@ void ofApp::update(){
 //--------------------------------------------------------------
 void ofApp::draw(){
     
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    glPointSize(0.1f);
-    glBegin(GL_POINTS);
+    // Update VBO data if necessary
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    float* vboData = (float*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
     for(int i = 0; i < numAgents; i++) {
-        glColor4f(1, 1, 1, 1);
-        glVertex2f(agents[i]->loc.x, agents[i]->loc.y);
+        vboData[2*i] = agents[i]->loc.x;
+        vboData[2*i+1] = agents[i]->loc.y;
     }
-    glEnd();
-        
-    //for (int i = 0; i < numAgents; i++) {
-    //    ofSetColor(255, 255, 255);
-    //    ofDrawCircle(agents[i]->loc[0], agents[i]->loc[1], 0.1);
-    //}
+    glUnmapBuffer(GL_ARRAY_BUFFER);
+
+    // Draw the points
+    glDrawArrays(GL_POINTS, 0, numAgents);
+
+    // Cleanup if needed, though not necessary every frame
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
-            //int mappedValue = round(map(trailMap[i][j], 0, maxDeposit, 0, 255, true));
-            //ofColor color(mappedValue, mappedValue, mappedValue); // Red color
-            //pixels.setColor(i, j, color);
-            //ofSetColor(mappedValue, mappedValue, mappedValue);
-            //ofDrawRectangle(i, j, 1, 1);
-            
-            //std::cout << mappedValue << std::endl;
-            //std::cout << trailMap[i][j] << std::endl;
-            
             if (trailMap[i][j] - decayT >= 0) {
                 trailMap[i][j] -= decayT;
-                //ofSetColor(trailMap[i][j], trailMap[i][j], trailMap[i][j]);
-                //ofDrawCircle(j, i, 1);
-                //ofSetColor(255, 255, 255);
             } else {
                 trailMap[i][j] = 0;
             }
