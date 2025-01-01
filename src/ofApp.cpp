@@ -5,19 +5,21 @@
 #include <glm/vector_relational.hpp>
 #include <glm/gtc/random.hpp>  // For glm::linearRand
 
-const int numAgents = 10000000;
+const int numAgents = 1000000;
 Agent** agents = new Agent*[numAgents];
 float** trailMap;
-float stepSize = 1;
+float stepSize = 2;
 int width;
 int height;
 
 float decayT = 2;
-float sensoryAngle = 3.141/8;
+float sensoryAngle = 3.141/4;
 float rotationAngle = 3.141/4;
-float sensorOffset = 9;
+float sensorOffset = 6;
 float deposit = 5;
 float maxDeposit = 1000;
+
+float pertProb = 0.5;
 
 GLuint vbo;
 
@@ -265,6 +267,14 @@ void ofApp::update(){
             agents[i]->rotate(-rotationAngle);
         }
     }
+
+    if (glm::linearRand(0.0f, 1.0f) < pertProb) {
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                trailMap[i][j] = 0;
+            }
+        }
+    }
 }
 
 //--------------------------------------------------------------
@@ -277,6 +287,7 @@ void ofApp::draw(){
         vboData[2*i] = agents[i]->loc.x;
         vboData[2*i+1] = agents[i]->loc.y;
     }
+
     glUnmapBuffer(GL_ARRAY_BUFFER);
 
     // Draw the points
@@ -285,8 +296,7 @@ void ofApp::draw(){
     // Cleanup if needed, though not necessary every frame
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    
-    ofSaveFrame();
+    //ofSaveFrame();
 }
 
 //--------------------------------------------------------------
@@ -316,7 +326,21 @@ void ofApp::mouseDragged(int x, int y, int button){
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button){
+    int pertSize = 50;
 
+    for (int i = 0; i < width; i++) {
+        for (int j = 0; j < height; j++) {
+            for (int k1 = - pertSize/2; k1 < pertSize /2; k1++) {
+                for (int k2 = - pertSize/2; k2 < pertSize /2; k2++) {
+                    if (isLegalCoords(i+k1, j+k2)) {
+                        trailMap[i][j] = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    printf("Click at (%d, %d)\n", x, y);
 }
 
 //--------------------------------------------------------------
