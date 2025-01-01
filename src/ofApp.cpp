@@ -5,7 +5,7 @@
 #include <glm/vector_relational.hpp>
 #include <glm/gtc/random.hpp>  // For glm::linearRand
 
-const int numAgents = 1000000;
+const int numAgents = 10000000;
 Agent** agents = new Agent*[numAgents];
 float** trailMap;
 float stepSize = 1;
@@ -65,6 +65,7 @@ void applyGaussianBlur(float** array, int width, int height, int kernelSize, flo
         std::copy(array[i], array[i] + height, tempArray[i]);
     }
 
+    #pragma omp parallel for collapse(2)
     for (int x = halfSize; x < width - halfSize; ++x) {
         for (int y = halfSize; y < height - halfSize; ++y) {
             float sum = 0.0;
@@ -109,12 +110,22 @@ void ofApp::setup(){
 
     width = (int)ofGetWidth();
     height = (int)ofGetHeight();
-    
-    for (int i = 0; i < numAgents; i++) {
-        glm::vec2 newLoc(glm::linearRand(0, width-1), glm::linearRand(0, height-1));
-        glm::vec2 newDir = createRandomNormalized2DVector();
-        //agents[i] = new Agent(newLoc, newDir);
-        agents[i] = new Agent(newLoc.x, newLoc.y, newDir.x, newDir.y);
+
+    bool evenlyDistributed = false;
+
+    if (evenlyDistributed) {
+        for (int i = 0; i < numAgents; i++) {
+            glm::vec2 newLoc(glm::linearRand(0, width-1), glm::linearRand(0, height-1));
+            glm::vec2 newDir = createRandomNormalized2DVector();
+            //agents[i] = new Agent(newLoc, newDir);
+            agents[i] = new Agent(newLoc.x, newLoc.y, newDir.x, newDir.y);
+        }
+    } else {
+        for (int i = 0; i < numAgents; i++) {
+            glm::vec2 newDir = createRandomNormalized2DVector();
+            //agents[i] = new Agent(newLoc, newDir);
+            agents[i] = new Agent(height/2, width/2, newDir.x, newDir.y);
+        }
     }
     
     trailMap = new float*[width];
@@ -186,6 +197,8 @@ float ofApp::map(float value, float inputMin, float inputMax, float outputMin, f
 
 //--------------------------------------------------------------
 void ofApp::update(){
+
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < width; i++) {
         for (int j = 0; j < height; j++) {
             if (trailMap[i][j] - decayT >= 0) {
@@ -200,7 +213,8 @@ void ofApp::update(){
     
     //image.setFromPixels(pixels);
     //image.draw(0, 0);
-    
+
+    #pragma omp parallel for
     for (int i = 0; i < numAgents; i++) {
         // Motor stage
         agents[i]->loc += stepSize*agents[i]->dir;
@@ -272,7 +286,7 @@ void ofApp::draw(){
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     
-    //ofSaveFrame();
+    ofSaveFrame();
 }
 
 //--------------------------------------------------------------
